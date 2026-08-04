@@ -472,8 +472,14 @@
     }).join("");
   }
 
+  function handleWriteError(e){
+    console.error(e);
+    var msg = (e && e.message) ? e.message : String(e);
+    setSyncStatus("書き込みエラー: " + msg, true);
+  }
+
   function addItemToDay(id, name, isNewMaster){
-    if(!db) return;
+    if(!db){ setSyncStatus("Firebase未接続のため追加できません", true); return; }
     var dateStr = fmtDate(currentDate);
     var updates = {};
     updates[ROOT + "/days/" + dateStr + "/items/" + id] = { name: name, checked: false };
@@ -484,21 +490,24 @@
       updates[ROOT + "/masterItems/" + id + "/count"] = cur + 1;
       updates[ROOT + "/masterItems/" + id + "/name"] = name;
     }
-    db.ref().update(updates).catch(function(e){ console.error(e); });
+    db.ref().update(updates).then(function(){
+      setSyncStatus("同期中");
+    }).catch(handleWriteError);
   }
 
   function toggleItem(id){
-    if(!db) return;
+    if(!db){ setSyncStatus("Firebase未接続です", true); return; }
     var dateStr = fmtDate(currentDate);
     var cur = currentDayData.items && currentDayData.items[id];
     if(!cur) return;
-    db.ref(ROOT + "/days/" + dateStr + "/items/" + id + "/checked").set(!cur.checked);
+    db.ref(ROOT + "/days/" + dateStr + "/items/" + id + "/checked").set(!cur.checked)
+      .catch(handleWriteError);
   }
 
   function deleteItemFromDay(id){
-    if(!db) return;
+    if(!db){ setSyncStatus("Firebase未接続です", true); return; }
     var dateStr = fmtDate(currentDate);
-    db.ref(ROOT + "/days/" + dateStr + "/items/" + id).remove();
+    db.ref(ROOT + "/days/" + dateStr + "/items/" + id).remove().catch(handleWriteError);
   }
 
   function attachDayListener(){
@@ -567,9 +576,9 @@
       var text = e.target.value;
       clearTimeout(scheduleTimer);
       scheduleTimer = setTimeout(function(){
-        if(!db) return;
+        if(!db){ setSyncStatus("Firebase未接続です", true); return; }
         var dateStr = fmtDate(currentDate);
-        db.ref(ROOT + "/days/" + dateStr + "/schedule").set(text);
+        db.ref(ROOT + "/days/" + dateStr + "/schedule").set(text).catch(handleWriteError);
       }, 500);
     });
 
