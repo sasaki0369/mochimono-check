@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>持ち物チェック</title>
+
+<!-- ホーム画面追加・アイコン設定（Android / iPhone 共通・すべて埋め込み、外部ファイル不要） -->
+<link rel="manifest" id="manifestLink">
+<meta name="theme-color" content="#2E4A56">
+
+<!-- ファビコン（埋め込み） -->
+<link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABB0lEQVR4nNWXsQ3CMBBFHYsBGIYyKzBBCkTLCiBFkWAFWkTBBKzgkmHYABpOOHZsnT93jvhNFCfxe74rHBszc5rUg9vQvqRhXe8iXjSgAc6JjAR8+Hp3EQffz9tIwtaCh/MSz+Ze0pYw5tMCstGG+6F2LNAJ2s1+dO+uJ2ieqAUIPDWmIpADIRLFLUBLnQrUAsmwK4CUl1MtVgU48OPzAX0n0gKCT0moC4TQUglYIAU6LFf6AqmSl8IhAaTPogKpVSKrhwR8WHitJiAF/0lAKiwBdAPifMfeC6R3Qcp/tEA6/u+5Neb7j+4/qJGud01UAW0Jmp8WXe1kFC5sUiCU0Eh4QJ39dPwGEaxobL29BkQAAAAASUVORK5CYII=">
+<link rel="icon" type="image/png" sizes="16x16" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAmUlEQVR4nGNkgIKljTb/GUgA0fVHGBkYGBgYydGMDBiRNftmzSda4+ZpiQwMDAwMTPg028RXM9jEV2M1AKaeCassVDM2NjpgwSVxZGErTk14DUC3reXDGYYaAROchuP0AkwzMo0N4DQAXRMuQ7AagE0xujfwGgBTjE4TbQCxmvEagAugRy9GNBIb/3AXwHIVLG0TC2DqKc6NAJLDNbuB1DcYAAAAAElFTkSuQmCC">
+
+<!-- iPhone/iPad ホーム画面用（iOSはmanifestのアイコンを見ないため個別に指定・埋め込み） -->
+<link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAAFi0lEQVR4nO3bzY3UQBCG4QYRAMFw3BSIgMOKKyksEkJiU+CK9kAEpDBHgiEDOFkyXnd3dXf1j799nxNIi8ca3ilqbBMCAAAAgBKvZp9AzM+vd39nnwPSPny5LdfPEidEvBpWCHzaCRCxtllxD39Ra8jvP/3ofSpo9Ov7R9PPjYx72AvlQibg68sFPiLs7i+QCpmIdaXi7hl2twPHQibil+cs7l5RdznoWcyEjBFhuwd9jJmQsdc7arcDMZVRolfYr1sPEAIxo9xZHx73Jpo/EawYaHWc1i2TumlCEzM8HLtpmdTVQRMzPHlFXRU0MaMHj6ibvxQSMzy19lQc9P5TQ8zoYd9V6ZQuCppHPjFDSXfmoNmbMVLtPl21QxMzRqjpzBQ0ezNWYJnSLre+gV5KB2g2aKYzZiu56sGEhpRk0ExnrMI6pZnQkBINmpsoWFmsT9OEZt3ACiwdsnJAymnQrBu4grNOsxOadQMryfXIygEpBA0pBA0pz4Lm7iBWl7pryISGFIKGFIKGFIKGlDezT0DR3f2D6eduT4+dz+TlIWgH1oBzf47A2xF0g9qQc8cj7HoEXcE75NjxCbscQRfoHXLs9QjbjqscRqNjXuW1r4YJbVAalHWilhz37v6BSW1A0Bk9L8Ht/4zldYg6j5UjwRLZ7enRJTLrcVg/0pjQlXpNyu24hFuHCR2RCmrEP/up1yD2OIIuNHKHZV8uR9AnrjABr3COMxB0gRkTkyldhqAhhascJ1abiqudz8qY0JBC0JBC0JBC0JBC0JBC0JBC0JBC0JBC0JAif6eQh3ieU77zKBs0Iccp/29yuaAJ2U4xbKkdmpjrKL1vUkEDMkErTZkZVN4/maCBEESCVpkusym8jxJBAxuChhSChhSChhSCvoBvf37PPoXLIOjFbTETtQ1BL+wY8bc/vwk7g6AviKjjCHpRuWiZ1ucIekHWUD+/fdf5TK6HoBdDzG0IeiGsEO0I+oKYznEEvQhWDR8EvQBi9kPQkxGzL4Ku5PEFji+B/gi6wujnK5jOdgRd6Oz5Co/jxBBzGYIuEIuwNGpi7oegjSzPVngcZ0PMdQjawCtWvgT2R9AZvdaJFKZzPYLOqInr7NFOVo0xCNqgNrLSy3vE3I6gjVqj7nV8/I+gCxDd+gi6UI+o+aD4IegKn9++c4uQmH0RdIPWGInZH0E3qo2SmPsgaAfEuQ6CdhKL+mzf5gPQD0E7SoW7/ZqY+yJoZ6lwibk/gu6AcOchaEghaEghaEghaEghaEghaEghaEghaEghaEghaEghaEghaEiRCPr29Dj7FCQovI8SQQMbmaAVpstMKu+fTNBACGJBq0yZ0ZTetzezT8Db9pdzd/8w+UzWpxTyRi7oDWHHKYa8kQ16o/yXh+ekdmiAoCGFoCGFoCGFoCGFoCGFoCGFoCGFoCGFoCGFoCHlWdAfvtxebb/+9f3j2LMBDPZd7nsNgQkNMQQNKQQNKadBs0djVan9OQQmNMQQNKREg2btwGpy60YITGiIIWhcgnVLSAbN2oEVxdaNEJjQuICSYZoNmimNlaSmcwgVE5qoMVJpb6agc58KYARLh+YJzeqB0SzXnY+qvxQSNXqq7asoaFYPjHCMuaS74gnN6oGRSodo83Voooanmr15ryro4wsRNTx4dFQ9oYkanlr25r3mL3k/v9793f/+/acfrYfEC3I2CFsuPrhctThGHQJhI8875hCcgg6BqFHGa8U4cr+uTNhI6TGV97rcKCFqHMUuGnjfrOt25+8s6hAI+6UZFfKm+63sWNghELey1GXcno9QDHs2IxV2CMStIHcvYsSzQMMfNsqFvSHw9Vlvpo18qG3a03PWsHFNs57MXOJxUOLWsMLjxdNPIIbI17dCwAAAABP8A64sKEaWRdfTAAAAAElFTkSuQmCC">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="持ち物チェック">
+
+<script>
+(function(){
+  var icon192 = "data:image/png;base64,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";
+  var icon512 = "data:image/png;base64,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";
+  var manifest = {
+    name: "持ち物チェック",
+    short_name: "持ち物",
+    description: "日ごとの予定と必要な持ち物をチェックできるアプリ",
+    start_url: "./index.html",
+    scope: "./",
+    display: "standalone",
+    background_color: "#FAF6ED",
+    theme_color: "#2E4A56",
+    icons: [
+      { src: icon192, sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: icon192, sizes: "192x192", type: "image/png", purpose: "maskable" },
+      { src: icon512, sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: icon512, sizes: "512x512", type: "image/png", purpose: "maskable" }
+    ]
+  };
+  var blob = new Blob([JSON.stringify(manifest)], {type: "application/manifest+json"});
+  document.getElementById("manifestLink").setAttribute("href", URL.createObjectURL(blob));
+})();
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #FAF6ED;
+    --paper-deep: #F2EBDB;
+    --line: #DED2B4;
+    --ink: #2E2A22;
+    --ink-soft: #7A7261;
+    --biz: #2E4A56;          /* 持ち物バッグの色 */
+    --biz-bg: #DCE7E9;
+    --sorry: #B23A22;        /* チェックマークの朱色 */
+    --sorry-bg: #F5DFD6;
+    --gold: #A5813C;
+    --shadow: 0 1px 0 rgba(46,42,34,0.06);
+  }
+
+  * { box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse at top left, rgba(165,129,60,0.05), transparent 55%),
+      var(--paper);
+    color: var(--ink);
+    font-family: "Zen Kaku Gothic New", sans-serif;
+    min-height:100vh;
+    padding: 20px 14px 60px;
+  }
+
+  .wrap{ max-width: 640px; margin: 0 auto; }
+
+  header{
+    text-align:center;
+    margin-bottom: 18px;
+  }
+  header h1{
+    font-family: "Shippori Mincho", serif;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    margin: 0 0 4px;
+    color: var(--ink);
+  }
+  header p{
+    margin:0;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+
+  .card{
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .card h2{
+    font-size: 14px;
+    font-weight: 700;
+    margin: 0 0 10px;
+    color: var(--biz);
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+
+  /* -------- 日付ナビ -------- */
+  .datenav{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 8px;
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+  }
+  .datenav button{
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    width: 38px;
+    height: 38px;
+    font-size: 18px;
+    color: var(--biz);
+    cursor:pointer;
+  }
+  .datenav button:active{ transform: scale(0.95); }
+  .datebox{
+    flex:1;
+    text-align:center;
+  }
+  .datebox .big{
+    font-family: "Shippori Mincho", serif;
+    font-size: 19px;
+    font-weight: 700;
+  }
+  .datebox .small{
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+  .datebox input[type=date]{
+    border:none;
+    background:transparent;
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--gold);
+    text-align:center;
+  }
+  .todaybtn{
+    width:auto !important;
+    padding: 0 10px;
+    font-size: 12px !important;
+    white-space:nowrap;
+  }
+
+  textarea, input[type=text]{
+    width:100%;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    resize: vertical;
+  }
+  textarea{ min-height: 56px; }
+  textarea:focus, input[type=text]:focus{ outline: 2px solid var(--gold); outline-offset:1px; }
+
+  /* -------- チェックリスト -------- */
+  .item-row{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--line);
+  }
+  .item-row:last-child{ border-bottom:none; }
+  .item-row.checked .item-name{
+    text-decoration: line-through;
+    color: var(--ink-soft);
+  }
+  .chk{
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    border: 2px solid var(--biz);
+    background: #fff;
+    flex-shrink:0;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color: var(--sorry);
+    font-weight:900;
+    font-size: 16px;
+  }
+  .item-row.checked .chk{
+    background: var(--biz-bg);
+  }
+  .item-name{
+    flex:1;
+    font-size: 15px;
+  }
+  .del-btn{
+    background:none;
+    border:none;
+    color: var(--ink-soft);
+    font-size: 18px;
+    cursor:pointer;
+    padding: 4px 6px;
+    line-height:1;
+  }
+  .empty-msg{
+    text-align:center;
+    color: var(--ink-soft);
+    font-size: 13px;
+    padding: 18px 0;
+  }
+
+  .progress-line{
+    font-size: 12px;
+    color: var(--ink-soft);
+    text-align:right;
+    margin-top: 4px;
+  }
+
+  /* -------- 追加エリア -------- */
+  .add-row{
+    display:flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .add-row input{ flex:1; }
+  .add-row button{
+    background: var(--biz);
+    color:#fff;
+    border:none;
+    border-radius: 10px;
+    padding: 0 16px;
+    font-size: 14px;
+    font-weight:700;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .add-row button:active{ transform: scale(0.97); }
+
+  .chip-label{
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin: 4px 0 8px;
+  }
+  .chips{
+    display:flex;
+    flex-wrap:wrap;
+    gap: 8px;
+  }
+  .chip{
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 13px;
+    color: var(--ink);
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:5px;
+  }
+  .chip:active{ transform: scale(0.96); }
+  .chip.added{
+    background: var(--biz-bg);
+    color: var(--biz);
+    border-color: var(--biz);
+  }
+  .chip .cnt{
+    font-size: 10px;
+    color: var(--gold);
+    font-weight:700;
+  }
+
+  .sync-status{
+    text-align:center;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 6px;
+  }
+  .sync-status.err{ color: var(--sorry); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>持ち物チェック</h1>
+    <p>その日の予定と持ち物をまとめて管理</p>
+  </header>
+
+  <div class="datenav">
+    <button id="prevDayBtn">‹</button>
+    <div class="datebox">
+      <div class="big" id="dateBig">-</div>
+      <input type="date" id="datePicker">
+    </div>
+    <button id="todayBtn" class="todaybtn">今日</button>
+    <button id="nextDayBtn">›</button>
+  </div>
+
+  <div class="card">
+    <h2>📋 予定概要</h2>
+    <textarea id="scheduleInput" placeholder="例：出張／子どもの遠足／日帰り旅行 など"></textarea>
+  </div>
+
+  <div class="card">
+    <h2>🎒 持ち物リスト</h2>
+    <div id="itemList"></div>
+    <div class="progress-line" id="progressLine"></div>
+  </div>
+
+  <div class="card">
+    <h2>➕ 持ち物を追加</h2>
+    <div class="add-row">
+      <input type="text" id="freeTextInput" placeholder="自由記述で持ち物を入力">
+      <button id="addFreeTextBtn">追加</button>
+    </div>
+    <div class="chip-label">よく使う持ち物（使用回数順）</div>
+    <div class="chips" id="masterChips"></div>
+  </div>
+
+  <div class="sync-status" id="syncStatus">Firebase接続中…</div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+(function(){
+  var firebaseConfig = {
+    apiKey: "AIzaSyB7LNORIYD3AfzuQlN8OFsIVVCZXluHF6s",
+    authDomain: "mochimono-check.firebaseapp.com",
+    databaseURL: "https://mochimono-check-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "mochimono-check",
+    storageBucket: "mochimono-check.firebasestorage.app",
+    messagingSenderId: "936797393460",
+    appId: "1:936797393460:web:6fe414a7393279f74c7061"
+  };
+
+  var app = null, db = null;
+  var ROOT = "mochimonoCheck";
+  try{
+    app = firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+  }catch(e){
+    console.error(e);
+  }
+
+  var syncStatusEl = document.getElementById("syncStatus");
+  function setSyncStatus(text, isErr){
+    syncStatusEl.textContent = text;
+    syncStatusEl.className = "sync-status" + (isErr ? " err" : "");
+  }
+
+  var masterItems = {}; // { id: {name, count} }
+  var currentDate = new Date();
+  var currentDayData = { schedule: "", items: {} };
+  var dayRef = null;
+  var scheduleTimer = null;
+
+  var WEEKDAYS = ["日","月","火","水","木","金","土"];
+
+  function fmtDate(d){
+    var y = d.getFullYear();
+    var m = String(d.getMonth()+1).padStart(2,"0");
+    var day = String(d.getDate()).padStart(2,"0");
+    return y + "-" + m + "-" + day;
+  }
+
+  function fmtBig(d){
+    return (d.getMonth()+1) + "月" + d.getDate() + "日（" + WEEKDAYS[d.getDay()] + "）";
+  }
+
+  // 名前から安定したキーを作る簡易ハッシュ（Firebaseキーに使えない文字を避ける）
+  function nameToId(name){
+    var h = 5381;
+    for(var i=0;i<name.length;i++){
+      h = ((h*33) ^ name.charCodeAt(i)) >>> 0;
+    }
+    return "it_" + h.toString(36);
+  }
+
+  function renderDateNav(){
+    document.getElementById("dateBig").textContent = fmtBig(currentDate);
+    document.getElementById("datePicker").value = fmtDate(currentDate);
+  }
+
+  function renderSchedule(){
+    var el = document.getElementById("scheduleInput");
+    if(document.activeElement !== el){
+      el.value = currentDayData.schedule || "";
+    }
+  }
+
+  function renderItemList(){
+    var container = document.getElementById("itemList");
+    var items = currentDayData.items || {};
+    var ids = Object.keys(items);
+    // チェック未済を先に、チェック済みを後ろに。同グループ内は追加順(名前)でソート
+    ids.sort(function(a,b){
+      var ia = items[a], ib = items[b];
+      if(!!ia.checked !== !!ib.checked) return ia.checked ? 1 : -1;
+      return (ia.name||"").localeCompare(ib.name||"", "ja");
+    });
+
+    if(ids.length === 0){
+      container.innerHTML = '<div class="empty-msg">まだ持ち物が登録されていません。下から追加してください。</div>';
+    } else {
+      container.innerHTML = ids.map(function(id){
+        var it = items[id];
+        var checkedClass = it.checked ? " checked" : "";
+        var mark = it.checked ? "✔" : "";
+        return '<div class="item-row' + checkedClass + '" data-id="' + id + '">' +
+          '<div class="chk" data-action="toggle">' + mark + '</div>' +
+          '<div class="item-name">' + escapeHtml(it.name) + '</div>' +
+          '<button class="del-btn" data-action="del">✕</button>' +
+        '</div>';
+      }).join("");
+    }
+
+    var total = ids.length;
+    var done = ids.filter(function(id){ return items[id].checked; }).length;
+    document.getElementById("progressLine").textContent =
+      total === 0 ? "" : ("チェック済み " + done + " / " + total);
+  }
+
+  function escapeHtml(s){
+    return (s||"").replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  function renderMasterChips(){
+    var container = document.getElementById("masterChips");
+    var ids = Object.keys(masterItems);
+    ids.sort(function(a,b){
+      var ca = masterItems[a].count || 0, cb = masterItems[b].count || 0;
+      if(cb !== ca) return cb - ca;
+      return (masterItems[a].name||"").localeCompare(masterItems[b].name||"", "ja");
+    });
+    if(ids.length === 0){
+      container.innerHTML = '<div class="empty-msg" style="padding:6px 0;">まだ登録された持ち物がありません</div>';
+      return;
+    }
+    var dayItems = currentDayData.items || {};
+    container.innerHTML = ids.map(function(id){
+      var it = masterItems[id];
+      var added = !!dayItems[id];
+      return '<div class="chip' + (added ? " added" : "") + '" data-id="' + id + '" data-name="' + escapeHtml(it.name) + '">' +
+        escapeHtml(it.name) +
+        '<span class="cnt">' + (it.count||0) + '</span>' +
+      '</div>';
+    }).join("");
+  }
+
+  function addItemToDay(id, name, isNewMaster){
+    if(!db) return;
+    var dateStr = fmtDate(currentDate);
+    var updates = {};
+    updates[ROOT + "/days/" + dateStr + "/items/" + id] = { name: name, checked: false };
+    if(isNewMaster){
+      updates[ROOT + "/masterItems/" + id] = { name: name, count: 1 };
+    } else {
+      var cur = (masterItems[id] && masterItems[id].count) || 0;
+      updates[ROOT + "/masterItems/" + id + "/count"] = cur + 1;
+      updates[ROOT + "/masterItems/" + id + "/name"] = name;
+    }
+    db.ref().update(updates).catch(function(e){ console.error(e); });
+  }
+
+  function toggleItem(id){
+    if(!db) return;
+    var dateStr = fmtDate(currentDate);
+    var cur = currentDayData.items && currentDayData.items[id];
+    if(!cur) return;
+    db.ref(ROOT + "/days/" + dateStr + "/items/" + id + "/checked").set(!cur.checked);
+  }
+
+  function deleteItemFromDay(id){
+    if(!db) return;
+    var dateStr = fmtDate(currentDate);
+    db.ref(ROOT + "/days/" + dateStr + "/items/" + id).remove();
+  }
+
+  function attachDayListener(){
+    if(!db) return;
+    if(dayRef) dayRef.off();
+    var dateStr = fmtDate(currentDate);
+    dayRef = db.ref(ROOT + "/days/" + dateStr);
+    dayRef.on("value", function(snap){
+      var val = snap.val() || {};
+      currentDayData = {
+        schedule: val.schedule || "",
+        items: val.items || {}
+      };
+      renderSchedule();
+      renderItemList();
+      renderMasterChips();
+    }, function(err){
+      setSyncStatus("同期エラー: " + err.message, true);
+    });
+  }
+
+  function attachMasterListener(){
+    if(!db) return;
+    db.ref(ROOT + "/masterItems").on("value", function(snap){
+      masterItems = snap.val() || {};
+      renderMasterChips();
+      setSyncStatus("同期中");
+    }, function(err){
+      setSyncStatus("同期エラー: " + err.message, true);
+    });
+  }
+
+  function goToDate(d){
+    currentDate = d;
+    renderDateNav();
+    attachDayListener();
+  }
+
+  function init(){
+    renderDateNav();
+    renderItemList();
+    renderMasterChips();
+
+    document.getElementById("prevDayBtn").addEventListener("click", function(){
+      var d = new Date(currentDate);
+      d.setDate(d.getDate()-1);
+      goToDate(d);
+    });
+    document.getElementById("nextDayBtn").addEventListener("click", function(){
+      var d = new Date(currentDate);
+      d.setDate(d.getDate()+1);
+      goToDate(d);
+    });
+    document.getElementById("todayBtn").addEventListener("click", function(){
+      goToDate(new Date());
+    });
+    document.getElementById("datePicker").addEventListener("change", function(e){
+      var parts = e.target.value.split("-");
+      if(parts.length === 3){
+        var d = new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10));
+        goToDate(d);
+      }
+    });
+
+    document.getElementById("scheduleInput").addEventListener("input", function(e){
+      var text = e.target.value;
+      clearTimeout(scheduleTimer);
+      scheduleTimer = setTimeout(function(){
+        if(!db) return;
+        var dateStr = fmtDate(currentDate);
+        db.ref(ROOT + "/days/" + dateStr + "/schedule").set(text);
+      }, 500);
+    });
+
+    document.getElementById("itemList").addEventListener("click", function(e){
+      var row = e.target.closest(".item-row");
+      if(!row) return;
+      var id = row.getAttribute("data-id");
+      var action = e.target.getAttribute("data-action");
+      if(action === "toggle"){
+        toggleItem(id);
+      } else if(action === "del"){
+        deleteItemFromDay(id);
+      }
+    });
+
+    document.getElementById("masterChips").addEventListener("click", function(e){
+      var chip = e.target.closest(".chip");
+      if(!chip) return;
+      var id = chip.getAttribute("data-id");
+      var name = chip.getAttribute("data-name");
+      if(currentDayData.items && currentDayData.items[id]){
+        return; // 既に追加済み
+      }
+      addItemToDay(id, name, false);
+    });
+
+    document.getElementById("addFreeTextBtn").addEventListener("click", submitFreeText);
+    document.getElementById("freeTextInput").addEventListener("keydown", function(e){
+      if(e.key === "Enter") submitFreeText();
+    });
+
+    function submitFreeText(){
+      var input = document.getElementById("freeTextInput");
+      var name = input.value.trim();
+      if(!name) return;
+      var id = nameToId(name);
+      var isNew = !masterItems[id];
+      addItemToDay(id, name, isNew);
+      input.value = "";
+    }
+
+    if(db){
+      attachDayListener();
+      attachMasterListener();
+    } else {
+      setSyncStatus("Firebase初期化エラー", true);
+    }
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
