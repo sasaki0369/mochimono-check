@@ -272,11 +272,68 @@
     font-size: 11px;
     color: var(--ink-soft);
     margin: 4px 0 8px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .edit-toggle-btn{
+    background:none;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--gold);
+    font-size: 11px;
+    padding: 3px 10px;
+    cursor:pointer;
+  }
+  .edit-toggle-btn.on{
+    background: var(--gold);
+    color: #fff;
+    border-color: var(--gold);
   }
   .chips{
     display:flex;
     flex-wrap:wrap;
     gap: 8px;
+  }
+  .edit-list{
+    display:flex;
+    flex-direction:column;
+    gap: 8px;
+  }
+  .edit-item-row{
+    display:flex;
+    align-items:center;
+    gap: 6px;
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+  .edit-name-input{
+    flex:1;
+    font-size: 13px;
+    padding: 6px 8px;
+  }
+  .edit-save-btn, .edit-del-btn{
+    border:none;
+    border-radius: 8px;
+    font-size: 12px;
+    padding: 7px 10px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .edit-save-btn{
+    background: var(--biz);
+    color:#fff;
+  }
+  .edit-del-btn{
+    background: #fff;
+    border: 1px solid var(--sorry);
+    color: var(--sorry);
+  }
+  .edit-del-btn.confirm{
+    background: var(--sorry);
+    color:#fff;
   }
   .chip{
     background: var(--paper-deep);
@@ -412,7 +469,10 @@
       </select>
       <button id="addFreeTextBtn">追加</button>
     </div>
-    <div class="chip-label">よく使う持ち物（使用回数順・タップで上の数量で追加）</div>
+    <div class="chip-label">
+      <span>よく使う持ち物（使用回数順・タップで上の数量で追加）</span>
+      <button class="edit-toggle-btn" id="editToggleBtn">編集</button>
+    </div>
     <div class="chips" id="masterChips"></div>
   </div>
 
@@ -532,6 +592,8 @@
     });
   }
 
+  var editMode = false;
+
   function renderMasterChips(){
     var container = document.getElementById("masterChips");
     var ids = Object.keys(masterItems);
@@ -542,17 +604,32 @@
     });
     if(ids.length === 0){
       container.innerHTML = '<div class="empty-msg" style="padding:6px 0;">まだ登録された持ち物がありません</div>';
+      container.className = editMode ? "edit-list" : "chips";
       return;
     }
-    var dayItems = currentDayData.items || {};
-    container.innerHTML = ids.map(function(id){
-      var it = masterItems[id];
-      var added = !!dayItems[id];
-      return '<div class="chip' + (added ? " added" : "") + '" data-id="' + id + '" data-name="' + escapeHtml(it.name) + '">' +
-        escapeHtml(it.name) +
-        '<span class="cnt">' + (it.count||0) + '</span>' +
-      '</div>';
-    }).join("");
+
+    if(editMode){
+      container.className = "edit-list";
+      container.innerHTML = ids.map(function(id){
+        var it = masterItems[id];
+        return '<div class="edit-item-row" data-id="' + id + '">' +
+          '<input type="text" class="edit-name-input" value="' + escapeHtml(it.name) + '">' +
+          '<button class="edit-save-btn" data-action="save">保存</button>' +
+          '<button class="edit-del-btn" data-action="del">削除</button>' +
+        '</div>';
+      }).join("");
+    } else {
+      container.className = "chips";
+      var dayItems = currentDayData.items || {};
+      container.innerHTML = ids.map(function(id){
+        var it = masterItems[id];
+        var added = !!dayItems[id];
+        return '<div class="chip' + (added ? " added" : "") + '" data-id="' + id + '" data-name="' + escapeHtml(it.name) + '">' +
+          escapeHtml(it.name) +
+          '<span class="cnt">' + (it.count||0) + '</span>' +
+        '</div>';
+      }).join("");
+    }
   }
 
   function handleWriteError(e){
@@ -583,6 +660,20 @@
     if(!db){ setSyncStatus("Firebase未接続です", true); return; }
     var dateStr = fmtDate(currentDate);
     db.ref(ROOT + "/days/" + dateStr + "/items/" + id + "/qty").set(qty).catch(handleWriteError);
+  }
+
+  function renameMasterItem(id, newName){
+    if(!db){ setSyncStatus("Firebase未接続です", true); return; }
+    db.ref(ROOT + "/masterItems/" + id + "/name").set(newName)
+      .then(function(){ setSyncStatus("同期中"); })
+      .catch(handleWriteError);
+  }
+
+  function deleteMasterItem(id){
+    if(!db){ setSyncStatus("Firebase未接続です", true); return; }
+    db.ref(ROOT + "/masterItems/" + id).remove()
+      .then(function(){ setSyncStatus("同期中"); })
+      .catch(handleWriteError);
   }
 
   function toggleItem(id){
@@ -741,6 +832,30 @@
     });
 
     document.getElementById("masterChips").addEventListener("click", function(e){
+      if(editMode){
+        var row = e.target.closest(".edit-item-row");
+        if(!row) return;
+        var rid = row.getAttribute("data-id");
+        var action = e.target.getAttribute("data-action");
+        if(action === "save"){
+          var input = row.querySelector(".edit-name-input");
+          var newName = input.value.trim();
+          if(!newName) return;
+          renameMasterItem(rid, newName);
+        } else if(action === "del"){
+          if(e.target.classList.contains("confirm")){
+            deleteMasterItem(rid);
+          } else {
+            e.target.classList.add("confirm");
+            e.target.textContent = "本当に削除？";
+            setTimeout(function(){
+              e.target.classList.remove("confirm");
+              e.target.textContent = "削除";
+            }, 3000);
+          }
+        }
+        return;
+      }
       var chip = e.target.closest(".chip");
       if(!chip) return;
       var id = chip.getAttribute("data-id");
@@ -750,6 +865,13 @@
       }
       var qty = parseInt(document.getElementById("addQtySelect").value, 10) || 1;
       addItemToDay(id, name, false, qty);
+    });
+
+    document.getElementById("editToggleBtn").addEventListener("click", function(e){
+      editMode = !editMode;
+      e.target.classList.toggle("on", editMode);
+      e.target.textContent = editMode ? "完了" : "編集";
+      renderMasterChips();
     });
 
     document.getElementById("addFreeTextBtn").addEventListener("click", submitFreeText);
