@@ -418,10 +418,41 @@
     white-space:nowrap;
   }
   .day-entry .de-progress.done{ color: var(--gold); }
+
+  /* -------- ログイン画面 -------- */
+  #loginScreen{
+    max-width: 340px;
+    margin: 80px auto 0;
+    text-align:center;
+    padding: 28px 20px;
+  }
+  #loginScreen p{
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: 6px 0 20px;
+  }
+  #googleLoginBtn{
+    background: var(--biz);
+    color:#fff;
+    border:none;
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight:700;
+    cursor:pointer;
+    width:100%;
+  }
+  #googleLoginBtn:active{ transform: scale(0.98); }
+  #appRoot.hidden{ display:none; }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="card" id="loginScreen" style="display:none;">
+  <h2 style="justify-content:center;">🔐 ログインが必要です</h2>
+  <p>このアプリはGoogleアカウントでのログインが必要です。<br>登録済みのアカウントでログインしてください。</p>
+  <button id="googleLoginBtn">Googleでログイン</button>
+</div>
+<div class="wrap" id="appRoot">
 
   <header>
     <h1>持ち物チェック</h1>
@@ -482,23 +513,25 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script>
 (function(){
   var firebaseConfig = {
-    apiKey: "AIzaSyB7LNORIYD3AfzuQlN8OFsIVVCZXluHF6s",
-    authDomain: "mochimono-check.firebaseapp.com",
-    databaseURL: "https://mochimono-check-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "mochimono-check",
-    storageBucket: "mochimono-check.firebasestorage.app",
-    messagingSenderId: "936797393460",
-    appId: "1:936797393460:web:6fe414a7393279f74c7061"
+    apiKey: "AIzaSyAxVn7JUuoBsNeSODksNYyEkd2W2E252_c",
+    authDomain: "life--log.firebaseapp.com",
+    databaseURL: "https://life--log-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "life--log",
+    storageBucket: "life--log.firebasestorage.app",
+    messagingSenderId: "790653257684",
+    appId: "1:790653257684:web:dd84bf5e0a38db328f3841"
   };
 
-  var app = null, db = null;
+  var app = null, db = null, auth = null;
   var ROOT = "mochimonoCheck";
   try{
     app = firebase.initializeApp(firebaseConfig);
     db = firebase.database();
+    auth = firebase.auth();
   }catch(e){
     console.error(e);
   }
@@ -906,13 +939,37 @@
       e.target.textContent = collapsed ? "開く" : "閉じる";
     });
 
-    if(db){
-      attachDayListener();
-      attachMasterListener();
-      attachAllDaysListener();
-    } else {
-      setSyncStatus("Firebase初期化エラー", true);
-    }
+    startSync();
+  }
+
+  function showApp(show){
+    document.getElementById("appRoot").classList.toggle("hidden", !show);
+    document.getElementById("loginScreen").style.display = show ? "none" : "block";
+  }
+
+  function startSync(){
+    if(!db || !auth){ setSyncStatus("Firebase初期化エラー", true); showApp(false); return; }
+
+    document.getElementById("googleLoginBtn").addEventListener("click", function(){
+      var provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithRedirect(provider);
+    });
+
+    auth.getRedirectResult().catch(function(e){
+      console.error(e);
+      setSyncStatus("ログインエラー: " + e.message, true);
+    });
+
+    auth.onAuthStateChanged(function(user){
+      if(user){
+        showApp(true);
+        attachDayListener();
+        attachMasterListener();
+        attachAllDaysListener();
+      } else {
+        showApp(false);
+      }
+    });
   }
 
   init();
