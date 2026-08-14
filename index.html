@@ -367,6 +367,22 @@
   textarea{ min-height: 56px; }
   textarea:focus, input[type=text]:focus{ outline: 2px solid var(--gold); outline-offset:1px; }
 
+  .trip-sched-summary{
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 10px;
+    line-height: 1.6;
+  }
+  .trip-sched-summary .tss-label{
+    color: var(--biz);
+    font-weight:700;
+    margin-right: 4px;
+  }
+
   /* -------- チェックリスト -------- */
   .item-row{
     display:flex;
@@ -729,6 +745,7 @@
   <div class="card">
     <h2>📋 予定概要</h2>
     <textarea id="scheduleInput" placeholder="例：出張／子どもの遠足／日帰り旅行 など"></textarea>
+    <div class="trip-sched-summary" id="tripScheduleSummary" style="display:none;"></div>
   </div>
 
   <div class="card">
@@ -915,6 +932,27 @@
       box.style.display = "none";
     }
     renderTripDayPanel();
+    renderTripScheduleSummary();
+  }
+
+  function renderTripScheduleSummary(){
+    var box = document.getElementById("tripScheduleSummary");
+    var trip = currentDayData.trip;
+    if(!trip || !trip.start || !trip.end || trip.start === trip.end){
+      box.style.display = "none";
+      return;
+    }
+    var dates = enumerateDatesInRange(trip.start, trip.end);
+    var scheds = dates.map(function(ds){
+      return (allDaysData[ds] && allDaysData[ds].schedule) || "";
+    }).filter(function(s){ return s; });
+
+    if(scheds.length === 0){
+      box.style.display = "none";
+      return;
+    }
+    box.style.display = "block";
+    box.innerHTML = '<span class="tss-label">日程全体の予定：</span>' + escapeHtml(scheds.join("／"));
   }
 
   function renderTripDayPanel(){
@@ -1357,6 +1395,7 @@
     db.ref(ROOT + "/days").on("value", function(snap){
       allDaysData = snap.val() || {};
       renderDayList();
+      renderTripScheduleSummary();
       // 日ごとの予定・服装パネル入力中でなければ最新状態に更新
       var active = document.activeElement;
       if(!active || !active.closest || !active.closest("#tripDaysContainer")){
