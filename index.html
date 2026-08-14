@@ -587,6 +587,21 @@
     white-space:nowrap;
   }
   .day-entry .de-progress.done{ color: var(--gold); }
+  .day-entry .de-del-btn{
+    background:none;
+    border: 1px solid var(--sorry);
+    color: var(--sorry);
+    border-radius: 8px;
+    font-size: 11px;
+    padding: 5px 8px;
+    cursor:pointer;
+    white-space:nowrap;
+    flex-shrink:0;
+  }
+  .day-entry .de-del-btn.confirm{
+    background: var(--sorry);
+    color:#fff;
+  }
 
   /* -------- ログイン画面 -------- */
   #loginScreen{
@@ -1081,6 +1096,14 @@
     db.ref(ROOT + "/days/" + dateStr + "/trip").remove().catch(handleWriteError);
   }
 
+  // 日の記録（予定・持ち物・日程・服装）を丸ごと削除する
+  function deleteDayRecord(dateStr){
+    if(!db){ setSyncStatus("Firebase未接続です", true); return; }
+    db.ref(ROOT + "/days/" + dateStr).remove()
+      .then(function(){ setSyncStatus("同期中"); })
+      .catch(handleWriteError);
+  }
+
   // -------- 服装パターン --------
   function clothNameToId(name){
     var h = 5381;
@@ -1292,6 +1315,7 @@
         '<div class="de-date">' + dateLabel + '</div>' +
         '<div class="de-sched">' + sched + '</div>' +
         '<div class="de-progress' + progressClass + '">' + progressText + '</div>' +
+        '<button class="de-del-btn" data-action="del">削除</button>' +
       '</div>';
     }).join("");
   }
@@ -1511,6 +1535,21 @@
       var entry = e.target.closest(".day-entry");
       if(!entry) return;
       var ds = entry.getAttribute("data-date");
+
+      if(e.target.getAttribute("data-action") === "del"){
+        if(e.target.classList.contains("confirm")){
+          deleteDayRecord(ds);
+        } else {
+          e.target.classList.add("confirm");
+          e.target.textContent = "本当に削除？";
+          setTimeout(function(){
+            e.target.classList.remove("confirm");
+            e.target.textContent = "削除";
+          }, 3000);
+        }
+        return;
+      }
+
       var parts = ds.split("-");
       var d = new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10));
       goToDate(d);
