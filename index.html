@@ -1087,6 +1087,9 @@
     });
     db.ref().update(updates).then(function(){
       setSyncStatus("同期中");
+      if(!allDaysData[dateStr]) allDaysData[dateStr] = {};
+      allDaysData[dateStr].trip = { start: start, end: end };
+      recomputeTripItems(start, end);
     }).catch(handleWriteError);
   }
 
@@ -1099,9 +1102,19 @@
   // 日の記録（予定・持ち物・日程・服装）を丸ごと削除する
   function deleteDayRecord(dateStr){
     if(!db){ setSyncStatus("Firebase未接続です", true); return; }
-    db.ref(ROOT + "/days/" + dateStr).remove()
-      .then(function(){ setSyncStatus("同期中"); })
-      .catch(handleWriteError);
+    var trip = allDaysData[dateStr] && allDaysData[dateStr].trip;
+    if(trip && trip.start && trip.end){
+      // 複数日にまたがる日程は範囲内の全ての日をまとめて削除
+      var updates = {};
+      enumerateDatesInRange(trip.start, trip.end).forEach(function(ds){
+        updates[ROOT + "/days/" + ds] = null;
+      });
+      db.ref().update(updates).then(function(){ setSyncStatus("同期中"); }).catch(handleWriteError);
+    } else {
+      db.ref(ROOT + "/days/" + dateStr).remove()
+        .then(function(){ setSyncStatus("同期中"); })
+        .catch(handleWriteError);
+    }
   }
 
   // -------- 服装パターン --------
@@ -1142,36 +1155,70 @@
   }
 
   // 服装選択：初日は記録のみ（持ち物には反映しない）。2日目以降は
-  // そのセットの持ち物を自動でその日のチェックリストに反映する。
-  // 以前選んでいたセット由来のアイテムは入れ替え時に取り除く。
-  function updateDayClothing(dateStr, newClothingId, isFirstDay){
+  // その日の服装として記録した上で、日程全体の持ち物リスト（出発日のレコード）
+  // に合計数量を再計算して反映する。
+  function updateDayClothing(dateStr, newClothingId, isFirstDay, tripStart, tripEnd){
     if(!db){ setSyncStatus("Firebase未接続です", true); return; }
-    var dayData = allDaysData[dateStr] || {};
-    var oldClothingId = dayData.clothing || "";
-    var updates = {};
-    updates[ROOT + "/days/" + dateStr + "/clothing"] = newClothingId || null;
-
-    if(!isFirstDay){
-      var items = dayData.items || {};
-      Object.keys(items).forEach(function(itemId){
-        if(oldClothingId && items[itemId] && items[itemId].fromClothing === oldClothingId){
-          updates[ROOT + "/days/" + dateStr + "/items/" + itemId] = null;
+    db.ref(ROOT + "/days/" + dateStr + "/clothing").set(newClothingId || null)
+      .then(function(){
+        setSyncStatus("同期中");
+        // ローカルキャッシュにも反映してから集計（Firebase側の反映を待たずに正確な値で計算する）
+        if(!allDaysData[dateStr]) allDaysData[dateStr] = {};
+        allDaysData[dateStr].clothing = newClothingId || null;
+        if(!isFirstDay && tripStart && tripEnd){
+          recomputeTripItems(tripStart, tripEnd);
         }
-      });
-      if(newClothingId && clothingSets[newClothingId]){
-        var names = parseItemsText(clothingSets[newClothingId].itemsText);
-        names.forEach(function(nm){
-          var iid = nameToId(nm);
-          updates[ROOT + "/days/" + dateStr + "/items/" + iid] = { name: nm, checked: false, qty: 1, fromClothing: newClothingId };
-          if(!masterItems[iid]){
-            updates[ROOT + "/masterItems/" + iid] = { name: nm, count: 1 };
-          } else {
-            updates[ROOT + "/masterItems/" + iid + "/count"] = (masterItems[iid].count || 0) + 1;
-          }
+      })
+      .catch(handleWriteError);
+  }
+
+  // 日程内（出発日を除く各日）で選択された服装パターンの持ち物を集計し、
+  // 出発日のレコードに合計数量として反映する。手動追加した持ち物（autoManagedでないもの）には触れない。
+  function recomputeTripItems(tripStart, tripEnd){
+    if(!db) return;
+    var dates = enumerateDatesInRange(tripStart, tripEnd);
+    var tally = {}; // name -> count
+    dates.forEach(function(ds){
+      if(ds === tripStart) return; // 初日は除外
+      var dayData = allDaysData[ds] || {};
+      var clothingId = dayData.clothing || "";
+      if(clothingId && clothingSets[clothingId]){
+        var names = parseItemsText(clothingSets[clothingId].itemsText);
+        var uniqueNames = names.filter(function(nm, idx){ return names.indexOf(nm) === idx; });
+        uniqueNames.forEach(function(nm){
+          tally[nm] = (tally[nm] || 0) + 1;
         });
       }
-    }
+    });
 
+    var existingItems = (allDaysData[tripStart] && allDaysData[tripStart].items) || {};
+    var updates = {};
+
+    // 集計結果を反映（既存分はチェック状態を維持）
+    Object.keys(tally).forEach(function(name){
+      var id = nameToId(name);
+      var qty = tally[name];
+      var prev = existingItems[id];
+      updates[ROOT + "/days/" + tripStart + "/items/" + id] = {
+        name: name,
+        checked: (prev && prev.checked) || false,
+        qty: qty,
+        autoManaged: true
+      };
+      if(!masterItems[id]){
+        updates[ROOT + "/masterItems/" + id] = { name: name, count: 1 };
+      }
+    });
+
+    // 以前は自動反映されていたが、現在の集計結果に含まれなくなったものを削除
+    Object.keys(existingItems).forEach(function(id){
+      var it = existingItems[id];
+      if(it && it.autoManaged && !tally[it.name]){
+        updates[ROOT + "/days/" + tripStart + "/items/" + id] = null;
+      }
+    });
+
+    if(Object.keys(updates).length === 0) return;
     db.ref().update(updates).then(function(){
       setSyncStatus("同期中");
     }).catch(handleWriteError);
@@ -1286,7 +1333,23 @@
   function renderDayList(){
     var container = document.getElementById("dayListContainer");
     var todayStr = fmtDate(new Date());
+
+    // 日程（複数日にまたがる旅程）の範囲を把握し、出発日以外の日は
+    // 個別レコードとして表示しないようにする
+    var hiddenNonStartDates = {};
+    var tripRangeByStart = {};
+    Object.keys(allDaysData).forEach(function(ds){
+      var trip = allDaysData[ds] && allDaysData[ds].trip;
+      if(trip && trip.start && trip.end){
+        tripRangeByStart[ds] = trip;
+        enumerateDatesInRange(trip.start, trip.end).forEach(function(rd){
+          if(rd !== trip.start) hiddenNonStartDates[rd] = true;
+        });
+      }
+    });
+
     var dateStrs = Object.keys(allDaysData).filter(function(ds){
+      if(hiddenNonStartDates[ds]) return false;
       var items = allDaysData[ds] && allDaysData[ds].items;
       return items && Object.keys(items).length > 0;
     });
@@ -1298,16 +1361,34 @@
       return;
     }
 
+    function labelFor(ds){
+      var parts = ds.split("-");
+      var d = new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10));
+      return (parseInt(parts[1],10)) + "月" + (parseInt(parts[2],10)) + "日（" + WEEKDAYS[d.getDay()] + "）";
+    }
+
     container.innerHTML = dateStrs.map(function(ds){
       var dayData = allDaysData[ds];
       var items = dayData.items || {};
       var ids = Object.keys(items);
       var total = ids.length;
       var done = ids.filter(function(id){ return items[id].checked; }).length;
-      var parts = ds.split("-");
-      var d = new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10));
-      var dateLabel = (parseInt(parts[1],10)) + "月" + (parseInt(parts[2],10)) + "日（" + WEEKDAYS[d.getDay()] + "）";
-      var sched = dayData.schedule ? escapeHtml(dayData.schedule) : "";
+
+      var trip = tripRangeByStart[ds];
+      var dateLabel;
+      var sched;
+      if(trip && trip.end !== trip.start){
+        // 複数日にまたがる日程は1レコードにまとめて表示
+        dateLabel = labelFor(trip.start) + "〜" + labelFor(trip.end);
+        var scheds = enumerateDatesInRange(trip.start, trip.end)
+          .map(function(rd){ return (allDaysData[rd] && allDaysData[rd].schedule) || ""; })
+          .filter(function(s){ return s; });
+        sched = escapeHtml(scheds.join("／"));
+      } else {
+        dateLabel = labelFor(ds);
+        sched = dayData.schedule ? escapeHtml(dayData.schedule) : "";
+      }
+
       var progressClass = (total > 0 && done === total) ? " done" : "";
       var progressText = done + " / " + total;
       var todayClass = (ds === todayStr) ? " today" : "";
@@ -1395,7 +1476,8 @@
       if(!row) return;
       var ds = row.getAttribute("data-date");
       var isFirstDay = row.getAttribute("data-firstday") === "1";
-      updateDayClothing(ds, e.target.value, isFirstDay);
+      var trip = currentDayData.trip;
+      updateDayClothing(ds, e.target.value, isFirstDay, trip && trip.start, trip && trip.end);
     });
 
     document.getElementById("clothAddBtn").addEventListener("click", function(){
