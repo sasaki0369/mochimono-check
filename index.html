@@ -164,6 +164,68 @@
     white-space:nowrap;
   }
 
+  /* -------- 日程登録 -------- */
+  .trip-row{
+    display:flex;
+    align-items:flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .trip-field{
+    display:flex;
+    flex-direction:column;
+    gap: 4px;
+    flex: 1;
+    min-width: 120px;
+  }
+  .trip-field label{
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+  .trip-field input[type=date]{
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 9px 10px;
+  }
+  #tripSaveBtn{
+    background: var(--biz);
+    color:#fff;
+    border:none;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight:700;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  #tripSaveBtn:active{ transform: scale(0.97); }
+  .trip-nights{
+    margin-top: 12px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background: var(--biz-bg);
+    border-radius: 10px;
+    padding: 10px 14px;
+  }
+  .trip-nights .tn-text{
+    font-family: "Shippori Mincho", serif;
+    font-weight:700;
+    font-size: 16px;
+    color: var(--biz);
+  }
+  .trip-clear-btn{
+    background:none;
+    border:none;
+    color: var(--sorry);
+    font-size: 12px;
+    cursor:pointer;
+  }
+
   textarea, input[type=text]{
     width:100%;
     font-family: inherit;
@@ -302,17 +364,36 @@
   }
   .edit-item-row{
     display:flex;
-    align-items:center;
-    gap: 6px;
+    flex-direction: column;
+    gap: 8px;
     background: var(--paper-deep);
     border: 1px solid var(--line);
     border-radius: 10px;
-    padding: 8px 10px;
+    padding: 10px;
+  }
+  .edit-item-row .edit-row-top{
+    display:flex;
+    align-items:center;
+    gap: 6px;
+  }
+  .edit-item-row .edit-row-bottom{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 6px;
   }
   .edit-name-input{
     flex:1;
     font-size: 13px;
     padding: 6px 8px;
+  }
+  .auto-qty-label{
+    display:flex;
+    align-items:center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    white-space:nowrap;
   }
   .edit-save-btn, .edit-del-btn{
     border:none;
@@ -477,6 +558,25 @@
   </div>
 
   <div class="card">
+    <h2>🗓 日程登録</h2>
+    <div class="trip-row">
+      <div class="trip-field">
+        <label for="tripStartInput">出発日</label>
+        <input type="date" id="tripStartInput">
+      </div>
+      <div class="trip-field">
+        <label for="tripEndInput">帰着日</label>
+        <input type="date" id="tripEndInput">
+      </div>
+      <button id="tripSaveBtn">登録</button>
+    </div>
+    <div class="trip-nights" id="tripNightsBox" style="display:none;">
+      <span class="tn-text" id="tripNightsText"></span>
+      <button class="trip-clear-btn" id="tripClearBtn">解除</button>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>📋 予定概要</h2>
     <textarea id="scheduleInput" placeholder="例：出張／子どもの遠足／日帰り旅行 など"></textarea>
   </div>
@@ -544,7 +644,7 @@
 
   var masterItems = {}; // { id: {name, count} }
   var currentDate = new Date();
-  var currentDayData = { schedule: "", items: {} };
+  var currentDayData = { schedule: "", items: {}, trip: null };
   var dayRef = null;
   var scheduleTimer = null;
 
@@ -582,6 +682,42 @@
     }
   }
 
+  // "YYYY-MM-DD" 文字列を Date に変換
+  function parseDateStr(ds){
+    var parts = (ds||"").split("-");
+    if(parts.length !== 3) return null;
+    return new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10));
+  }
+
+  // 出発日〜帰着日から泊数を計算（例：8/1〜8/3 なら2泊3日 → nights=2）
+  function computeNights(startStr, endStr){
+    var s = parseDateStr(startStr), e = parseDateStr(endStr);
+    if(!s || !e) return 0;
+    var diff = Math.round((e.getTime() - s.getTime()) / 86400000);
+    return diff > 0 ? diff : 0;
+  }
+
+  function renderTrip(){
+    var trip = currentDayData.trip;
+    var startInput = document.getElementById("tripStartInput");
+    var endInput = document.getElementById("tripEndInput");
+    var box = document.getElementById("tripNightsBox");
+    var text = document.getElementById("tripNightsText");
+
+    if(trip && trip.start && trip.end){
+      if(document.activeElement !== startInput) startInput.value = trip.start;
+      if(document.activeElement !== endInput) endInput.value = trip.end;
+      var nights = computeNights(trip.start, trip.end);
+      var days = nights + 1;
+      box.style.display = "flex";
+      text.textContent = nights > 0 ? (nights + "泊" + days + "日") : "日帰り";
+    } else {
+      if(document.activeElement !== startInput) startInput.value = fmtDate(currentDate);
+      if(document.activeElement !== endInput) endInput.value = "";
+      box.style.display = "none";
+    }
+  }
+
   function renderItemList(){
     var container = document.getElementById("itemList");
     var items = currentDayData.items || {};
@@ -601,9 +737,11 @@
         var checkedClass = it.checked ? " checked" : "";
         var mark = it.checked ? "✔" : "";
         var qty = it.qty || 1;
-        var options = [1,2,3,4,5].map(function(n){
-          return '<option value="' + n + '"' + (n === qty ? " selected" : "") + '>×' + n + '</option>';
-        }).join("");
+        var maxOpt = Math.max(5, qty);
+        var options = "";
+        for(var n=1; n<=maxOpt; n++){
+          options += '<option value="' + n + '"' + (n === qty ? " selected" : "") + '>×' + n + '</option>';
+        }
         return '<div class="item-row' + checkedClass + '" data-id="' + id + '">' +
           '<div class="chk" data-action="toggle">' + mark + '</div>' +
           '<div class="item-name">' + escapeHtml(it.name) + '</div>' +
@@ -645,10 +783,16 @@
       container.className = "edit-list";
       container.innerHTML = ids.map(function(id){
         var it = masterItems[id];
+        var checked = it.autoQty ? " checked" : "";
         return '<div class="edit-item-row" data-id="' + id + '">' +
-          '<input type="text" class="edit-name-input" value="' + escapeHtml(it.name) + '">' +
-          '<button class="edit-save-btn" data-action="save">保存</button>' +
-          '<button class="edit-del-btn" data-action="del">削除</button>' +
+          '<div class="edit-row-top">' +
+            '<input type="text" class="edit-name-input" value="' + escapeHtml(it.name) + '">' +
+            '<button class="edit-save-btn" data-action="save">保存</button>' +
+          '</div>' +
+          '<div class="edit-row-bottom">' +
+            '<label class="auto-qty-label"><input type="checkbox" class="auto-qty-checkbox" data-action="autoqty"' + checked + '> 泊数分を自動で数量に反映</label>' +
+            '<button class="edit-del-btn" data-action="del">削除</button>' +
+          '</div>' +
         '</div>';
       }).join("");
     } else {
@@ -695,6 +839,34 @@
     db.ref(ROOT + "/days/" + dateStr + "/items/" + id + "/qty").set(qty).catch(handleWriteError);
   }
 
+  function saveTrip(start, end){
+    if(!db){ setSyncStatus("Firebase未接続です", true); return; }
+    var nights = computeNights(start, end);
+    if(nights <= 0){
+      setSyncStatus("帰着日は出発日より後の日付にしてください", true);
+      return;
+    }
+    var dateStr = fmtDate(currentDate);
+    var updates = {};
+    updates[ROOT + "/days/" + dateStr + "/trip"] = { start: start, end: end };
+    // 泊数分自動反映の対象アイテムは、登録済みならこのタイミングで数量を更新
+    var items = currentDayData.items || {};
+    Object.keys(items).forEach(function(id){
+      if(masterItems[id] && masterItems[id].autoQty){
+        updates[ROOT + "/days/" + dateStr + "/items/" + id + "/qty"] = nights;
+      }
+    });
+    db.ref().update(updates).then(function(){
+      setSyncStatus("同期中");
+    }).catch(handleWriteError);
+  }
+
+  function clearTrip(){
+    if(!db){ setSyncStatus("Firebase未接続です", true); return; }
+    var dateStr = fmtDate(currentDate);
+    db.ref(ROOT + "/days/" + dateStr + "/trip").remove().catch(handleWriteError);
+  }
+
   function renameMasterItem(id, newName){
     if(!db){ setSyncStatus("Firebase未接続です", true); return; }
     db.ref(ROOT + "/masterItems/" + id + "/name").set(newName)
@@ -706,6 +878,20 @@
     if(!db){ setSyncStatus("Firebase未接続です", true); return; }
     db.ref(ROOT + "/masterItems/" + id).remove()
       .then(function(){ setSyncStatus("同期中"); })
+      .catch(handleWriteError);
+  }
+
+  function setMasterAutoQty(id, flag){
+    if(!db){ setSyncStatus("Firebase未接続です", true); return; }
+    db.ref(ROOT + "/masterItems/" + id + "/autoQty").set(!!flag)
+      .then(function(){
+        setSyncStatus("同期中");
+        // 既にこの日のリストに入っている場合は、泊数に応じて数量を即反映
+        if(flag && currentDayData.trip && currentDayData.items && currentDayData.items[id]){
+          var nights = computeNights(currentDayData.trip.start, currentDayData.trip.end);
+          if(nights > 0) updateItemQty(id, nights);
+        }
+      })
       .catch(handleWriteError);
   }
 
@@ -733,9 +919,11 @@
       var val = snap.val() || {};
       currentDayData = {
         schedule: val.schedule || "",
-        items: val.items || {}
+        items: val.items || {},
+        trip: val.trip || null
       };
       renderSchedule();
+      renderTrip();
       renderItemList();
       renderMasterChips();
     }, function(err){
@@ -810,6 +998,7 @@
 
   function init(){
     renderDateNav();
+    renderTrip();
     renderItemList();
     renderMasterChips();
 
@@ -842,6 +1031,20 @@
         var dateStr = fmtDate(currentDate);
         db.ref(ROOT + "/days/" + dateStr + "/schedule").set(text).catch(handleWriteError);
       }, 500);
+    });
+
+    document.getElementById("tripSaveBtn").addEventListener("click", function(){
+      var start = document.getElementById("tripStartInput").value;
+      var end = document.getElementById("tripEndInput").value;
+      if(!start || !end){
+        setSyncStatus("出発日と帰着日を両方入力してください", true);
+        return;
+      }
+      saveTrip(start, end);
+    });
+
+    document.getElementById("tripClearBtn").addEventListener("click", function(){
+      clearTrip();
     });
 
     document.getElementById("itemList").addEventListener("click", function(e){
@@ -886,6 +1089,8 @@
               e.target.textContent = "削除";
             }, 3000);
           }
+        } else if(action === "autoqty"){
+          setMasterAutoQty(rid, e.target.checked);
         }
         return;
       }
@@ -896,8 +1101,7 @@
       if(currentDayData.items && currentDayData.items[id]){
         return; // 既に追加済み
       }
-      var qty = parseInt(document.getElementById("addQtySelect").value, 10) || 1;
-      addItemToDay(id, name, false, qty);
+      addItemToDay(id, name, false, resolveAddQty(id));
     });
 
     document.getElementById("editToggleBtn").addEventListener("click", function(e){
@@ -912,14 +1116,24 @@
       if(e.key === "Enter") submitFreeText();
     });
 
+    // 泊数分自動反映が有効な持ち物は、日程が登録済みなら数量を泊数に合わせる。
+    // 新規（マスタ未登録）の自由記述はまだautoQtyフラグが無いため、プルダウンの値をそのまま使う。
+    function resolveAddQty(id){
+      var manualQty = parseInt(document.getElementById("addQtySelect").value, 10) || 1;
+      if(masterItems[id] && masterItems[id].autoQty && currentDayData.trip){
+        var nights = computeNights(currentDayData.trip.start, currentDayData.trip.end);
+        if(nights > 0) return nights;
+      }
+      return manualQty;
+    }
+
     function submitFreeText(){
       var input = document.getElementById("freeTextInput");
       var name = input.value.trim();
       if(!name) return;
       var id = nameToId(name);
       var isNew = !masterItems[id];
-      var qty = parseInt(document.getElementById("addQtySelect").value, 10) || 1;
-      addItemToDay(id, name, isNew, qty);
+      addItemToDay(id, name, isNew, resolveAddQty(id));
       input.value = "";
     }
 
