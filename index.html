@@ -226,6 +226,94 @@
     cursor:pointer;
   }
 
+  /* -------- 日ごとの予定・服装 -------- */
+  .trip-day-row{
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+  .trip-day-row:last-child{ margin-bottom:0; }
+  .trip-day-head{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .tdr-badge{
+    background: var(--biz);
+    color:#fff;
+    font-size: 11px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-weight:700;
+    white-space:nowrap;
+  }
+  .tdr-date{
+    font-family: "Shippori Mincho", serif;
+    font-weight:700;
+    font-size: 14px;
+  }
+  .tdr-note{
+    font-size: 11px;
+    color: var(--sorry);
+  }
+  .trip-day-sched{
+    margin-bottom: 8px;
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+  .trip-day-cloth{
+    width:100%;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--ink);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+
+  /* -------- 服装パターン管理 -------- */
+  .cloth-set-view-row{
+    background: var(--paper-deep);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+  .cloth-set-view-row:last-child{ margin-bottom:0; }
+  .cloth-set-view-row .csv-name{
+    font-weight:700;
+    font-size: 13px;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .cloth-set-view-row .csv-items{
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .cloth-add-block{
+    display:flex;
+    flex-direction:column;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .cloth-add-block textarea{ min-height: 44px; }
+  .cloth-add-block button{
+    align-self:flex-end;
+    background: var(--biz);
+    color:#fff;
+    border:none;
+    border-radius: 10px;
+    padding: 9px 18px;
+    font-size: 13px;
+    font-weight:700;
+    cursor:pointer;
+  }
+
   textarea, input[type=text]{
     width:100%;
     font-family: inherit;
@@ -576,6 +664,23 @@
     </div>
   </div>
 
+  <div class="card" id="tripDaysCard" style="display:none;">
+    <h2>📅 日ごとの予定・服装</h2>
+    <div id="tripDaysContainer"></div>
+  </div>
+
+  <div class="card">
+    <h2 style="display:flex;align-items:center;">👕 服装パターン
+      <button class="edit-toggle-btn" id="clothEditToggleBtn">編集</button>
+    </h2>
+    <div class="cloth-add-block">
+      <input type="text" id="clothNameInput" placeholder="服装名（例：スーツスタイル）">
+      <textarea id="clothItemsInput" placeholder="必要な持ち物をカンマ区切りで入力（例：スーツ, ネクタイ, 革靴）"></textarea>
+      <button id="clothAddBtn">追加</button>
+    </div>
+    <div id="clothSetList"></div>
+  </div>
+
   <div class="card">
     <h2>📋 予定概要</h2>
     <textarea id="scheduleInput" placeholder="例：出張／子どもの遠足／日帰り旅行 など"></textarea>
@@ -643,10 +748,12 @@
   }
 
   var masterItems = {}; // { id: {name, count} }
+  var clothingSets = {}; // { id: {name, itemsText} }
   var currentDate = new Date();
   var currentDayData = { schedule: "", items: {}, trip: null };
   var dayRef = null;
   var scheduleTimer = null;
+  var tripDayScheduleTimers = {}; // { dateStr: timerId }
 
   var WEEKDAYS = ["日","月","火","水","木","金","土"];
 
@@ -690,11 +797,36 @@
   }
 
   // 出発日〜帰着日から泊数を計算（例：8/1〜8/3 なら2泊3日 → nights=2）
-  function computeNights(startStr, endStr){
+  // 出発日〜帰着日の日数差（負値も返す。バリデーション用）
+  function rawDaysDiff(startStr, endStr){
     var s = parseDateStr(startStr), e = parseDateStr(endStr);
-    if(!s || !e) return 0;
-    var diff = Math.round((e.getTime() - s.getTime()) / 86400000);
-    return diff > 0 ? diff : 0;
+    if(!s || !e) return null;
+    return Math.round((e.getTime() - s.getTime()) / 86400000);
+  }
+
+  function computeNights(startStr, endStr){
+    var diff = rawDaysDiff(startStr, endStr);
+    return (diff !== null && diff > 0) ? diff : 0;
+  }
+
+  // カンマ・読点区切りのテキストを持ち物名の配列に変換
+  function parseItemsText(text){
+    return (text||"").split(/[,、]/).map(function(s){ return s.trim(); }).filter(function(s){ return s.length > 0; });
+  }
+
+  // 出発日〜帰着日（両端含む）の日付文字列配列を返す
+  function enumerateDatesInRange(startStr, endStr){
+    var s = parseDateStr(startStr), e = parseDateStr(endStr);
+    if(!s || !e) return [];
+    var out = [];
+    var cur = new Date(s);
+    var guard = 0;
+    while(cur.getTime() <= e.getTime() && guard < 60){
+      out.push(fmtDate(cur));
+      cur.setDate(cur.getDate()+1);
+      guard++;
+    }
+    return out;
   }
 
   function renderTrip(){
@@ -715,6 +847,87 @@
       if(document.activeElement !== startInput) startInput.value = fmtDate(currentDate);
       if(document.activeElement !== endInput) endInput.value = "";
       box.style.display = "none";
+    }
+    renderTripDayPanel();
+  }
+
+  function renderTripDayPanel(){
+    var card = document.getElementById("tripDaysCard");
+    var container = document.getElementById("tripDaysContainer");
+    var trip = currentDayData.trip;
+    if(!trip || !trip.start || !trip.end){
+      card.style.display = "none";
+      return;
+    }
+    card.style.display = "block";
+    var dates = enumerateDatesInRange(trip.start, trip.end);
+    var clothIds = Object.keys(clothingSets).sort(function(a,b){
+      return (clothingSets[a].name||"").localeCompare(clothingSets[b].name||"", "ja");
+    });
+
+    container.innerHTML = dates.map(function(ds, idx){
+      var dayNum = idx + 1;
+      var isFirstDay = (ds === trip.start);
+      var dayData = allDaysData[ds] || {};
+      var schedule = dayData.schedule || "";
+      var clothingId = dayData.clothing || "";
+      var d = parseDateStr(ds);
+      var dateLabel = (d.getMonth()+1) + "/" + d.getDate() + "（" + WEEKDAYS[d.getDay()] + "）";
+
+      var options = '<option value="">服装を選択</option>' + clothIds.map(function(cid){
+        return '<option value="' + cid + '"' + (cid === clothingId ? " selected" : "") + '>' + escapeHtml(clothingSets[cid].name) + '</option>';
+      }).join("");
+
+      return '<div class="trip-day-row" data-date="' + ds + '" data-firstday="' + (isFirstDay ? "1" : "0") + '">' +
+        '<div class="trip-day-head">' +
+          '<span class="tdr-badge">' + dayNum + '日目</span>' +
+          '<span class="tdr-date">' + dateLabel + '</span>' +
+          (isFirstDay ? '<span class="tdr-note">初日・服装は持ち物に反映されません</span>' : '') +
+        '</div>' +
+        '<input type="text" class="trip-day-sched" data-action="sched" placeholder="この日の予定" value="' + escapeHtml(schedule) + '">' +
+        '<select class="trip-day-cloth" data-action="cloth">' + options + '</select>' +
+      '</div>';
+    }).join("");
+  }
+
+  var clothEditMode = false;
+
+  function renderClothingSetList(){
+    var container = document.getElementById("clothSetList");
+    var ids = Object.keys(clothingSets);
+    ids.sort(function(a,b){
+      return (clothingSets[a].name||"").localeCompare(clothingSets[b].name||"", "ja");
+    });
+
+    if(ids.length === 0){
+      container.innerHTML = '<div class="empty-msg" style="padding:6px 0;">まだ服装パターンが登録されていません</div>';
+      return;
+    }
+
+    if(clothEditMode){
+      container.className = "edit-list";
+      container.innerHTML = ids.map(function(id){
+        var cs = clothingSets[id];
+        return '<div class="edit-item-row" data-id="' + id + '">' +
+          '<div class="edit-row-top">' +
+            '<input type="text" class="edit-name-input" data-field="name" value="' + escapeHtml(cs.name) + '">' +
+          '</div>' +
+          '<textarea class="edit-cloth-items" data-field="items" placeholder="カンマ区切りで入力">' + escapeHtml(cs.itemsText || "") + '</textarea>' +
+          '<div class="edit-row-bottom">' +
+            '<button class="edit-save-btn" data-action="save">保存</button>' +
+            '<button class="edit-del-btn" data-action="del">削除</button>' +
+          '</div>' +
+        '</div>';
+      }).join("");
+    } else {
+      container.className = "";
+      container.innerHTML = ids.map(function(id){
+        var cs = clothingSets[id];
+        return '<div class="cloth-set-view-row">' +
+          '<div class="csv-name">' + escapeHtml(cs.name) + '</div>' +
+          '<div class="csv-items">' + escapeHtml((cs.itemsText||"")) + '</div>' +
+        '</div>';
+      }).join("");
     }
   }
 
@@ -841,18 +1054,19 @@
 
   function saveTrip(start, end){
     if(!db){ setSyncStatus("Firebase未接続です", true); return; }
-    var nights = computeNights(start, end);
-    if(nights <= 0){
-      setSyncStatus("帰着日は出発日より後の日付にしてください", true);
+    var diff = rawDaysDiff(start, end);
+    if(diff === null || diff < 0){
+      setSyncStatus("帰着日は出発日と同じか、それより後の日付にしてください", true);
       return;
     }
+    var nights = diff; // 0なら日帰り
     var dateStr = fmtDate(currentDate);
     var updates = {};
     updates[ROOT + "/days/" + dateStr + "/trip"] = { start: start, end: end };
     // 泊数分自動反映の対象アイテムは、登録済みならこのタイミングで数量を更新
     var items = currentDayData.items || {};
     Object.keys(items).forEach(function(id){
-      if(masterItems[id] && masterItems[id].autoQty){
+      if(masterItems[id] && masterItems[id].autoQty && nights > 0){
         updates[ROOT + "/days/" + dateStr + "/items/" + id + "/qty"] = nights;
       }
     });
@@ -865,6 +1079,79 @@
     if(!db){ setSyncStatus("Firebase未接続です", true); return; }
     var dateStr = fmtDate(currentDate);
     db.ref(ROOT + "/days/" + dateStr + "/trip").remove().catch(handleWriteError);
+  }
+
+  // -------- 服装パターン --------
+  function clothNameToId(name){
+    var h = 5381;
+    for(var i=0;i<name.length;i++){
+      h = ((h*33) ^ name.charCodeAt(i)) >>> 0;
+    }
+    return "cs_" + h.toString(36);
+  }
+
+  function addClothingSet(name, itemsText){
+    if(!db){ setSyncStatus("Firebase未接続です", true); return; }
+    var id = clothNameToId(name);
+    db.ref(ROOT + "/clothingSets/" + id).set({ name: name, itemsText: itemsText })
+      .then(function(){ setSyncStatus("同期中"); })
+      .catch(handleWriteError);
+  }
+
+  function updateClothingSet(id, name, itemsText){
+    if(!db){ setSyncStatus("Firebase未接続です", true); return; }
+    db.ref(ROOT + "/clothingSets/" + id).set({ name: name, itemsText: itemsText })
+      .then(function(){ setSyncStatus("同期中"); })
+      .catch(handleWriteError);
+  }
+
+  function deleteClothingSet(id){
+    if(!db){ setSyncStatus("Firebase未接続です", true); return; }
+    db.ref(ROOT + "/clothingSets/" + id).remove()
+      .then(function(){ setSyncStatus("同期中"); })
+      .catch(handleWriteError);
+  }
+
+  // -------- 日ごとの予定・服装（トリップ内の各日） --------
+  function updateDaySchedule(dateStr, text){
+    if(!db){ setSyncStatus("Firebase未接続です", true); return; }
+    db.ref(ROOT + "/days/" + dateStr + "/schedule").set(text).catch(handleWriteError);
+  }
+
+  // 服装選択：初日は記録のみ（持ち物には反映しない）。2日目以降は
+  // そのセットの持ち物を自動でその日のチェックリストに反映する。
+  // 以前選んでいたセット由来のアイテムは入れ替え時に取り除く。
+  function updateDayClothing(dateStr, newClothingId, isFirstDay){
+    if(!db){ setSyncStatus("Firebase未接続です", true); return; }
+    var dayData = allDaysData[dateStr] || {};
+    var oldClothingId = dayData.clothing || "";
+    var updates = {};
+    updates[ROOT + "/days/" + dateStr + "/clothing"] = newClothingId || null;
+
+    if(!isFirstDay){
+      var items = dayData.items || {};
+      Object.keys(items).forEach(function(itemId){
+        if(oldClothingId && items[itemId] && items[itemId].fromClothing === oldClothingId){
+          updates[ROOT + "/days/" + dateStr + "/items/" + itemId] = null;
+        }
+      });
+      if(newClothingId && clothingSets[newClothingId]){
+        var names = parseItemsText(clothingSets[newClothingId].itemsText);
+        names.forEach(function(nm){
+          var iid = nameToId(nm);
+          updates[ROOT + "/days/" + dateStr + "/items/" + iid] = { name: nm, checked: false, qty: 1, fromClothing: newClothingId };
+          if(!masterItems[iid]){
+            updates[ROOT + "/masterItems/" + iid] = { name: nm, count: 1 };
+          } else {
+            updates[ROOT + "/masterItems/" + iid + "/count"] = (masterItems[iid].count || 0) + 1;
+          }
+        });
+      }
+    }
+
+    db.ref().update(updates).then(function(){
+      setSyncStatus("同期中");
+    }).catch(handleWriteError);
   }
 
   function renameMasterItem(id, newName){
@@ -949,6 +1236,25 @@
     db.ref(ROOT + "/days").on("value", function(snap){
       allDaysData = snap.val() || {};
       renderDayList();
+      // 日ごとの予定・服装パネル入力中でなければ最新状態に更新
+      var active = document.activeElement;
+      if(!active || !active.closest || !active.closest("#tripDaysContainer")){
+        renderTripDayPanel();
+      }
+    }, function(err){
+      setSyncStatus("同期エラー: " + err.message, true);
+    });
+  }
+
+  function attachClothingSetsListener(){
+    if(!db) return;
+    db.ref(ROOT + "/clothingSets").on("value", function(snap){
+      clothingSets = snap.val() || {};
+      renderClothingSetList();
+      var active = document.activeElement;
+      if(!active || !active.closest || !active.closest("#tripDaysContainer")){
+        renderTripDayPanel();
+      }
     }, function(err){
       setSyncStatus("同期エラー: " + err.message, true);
     });
@@ -1045,6 +1351,70 @@
 
     document.getElementById("tripClearBtn").addEventListener("click", function(){
       clearTrip();
+    });
+
+    document.getElementById("tripDaysContainer").addEventListener("input", function(e){
+      if(e.target.getAttribute("data-action") !== "sched") return;
+      var row = e.target.closest(".trip-day-row");
+      if(!row) return;
+      var ds = row.getAttribute("data-date");
+      var text = e.target.value;
+      clearTimeout(tripDayScheduleTimers[ds]);
+      tripDayScheduleTimers[ds] = setTimeout(function(){
+        updateDaySchedule(ds, text);
+      }, 500);
+    });
+
+    document.getElementById("tripDaysContainer").addEventListener("change", function(e){
+      if(e.target.getAttribute("data-action") !== "cloth") return;
+      var row = e.target.closest(".trip-day-row");
+      if(!row) return;
+      var ds = row.getAttribute("data-date");
+      var isFirstDay = row.getAttribute("data-firstday") === "1";
+      updateDayClothing(ds, e.target.value, isFirstDay);
+    });
+
+    document.getElementById("clothAddBtn").addEventListener("click", function(){
+      var nameInput = document.getElementById("clothNameInput");
+      var itemsInput = document.getElementById("clothItemsInput");
+      var name = nameInput.value.trim();
+      var itemsText = itemsInput.value.trim();
+      if(!name){ setSyncStatus("服装名を入力してください", true); return; }
+      addClothingSet(name, itemsText);
+      nameInput.value = "";
+      itemsInput.value = "";
+    });
+
+    document.getElementById("clothEditToggleBtn").addEventListener("click", function(e){
+      clothEditMode = !clothEditMode;
+      e.target.classList.toggle("on", clothEditMode);
+      e.target.textContent = clothEditMode ? "完了" : "編集";
+      renderClothingSetList();
+    });
+
+    document.getElementById("clothSetList").addEventListener("click", function(e){
+      if(!clothEditMode) return;
+      var row = e.target.closest(".edit-item-row");
+      if(!row) return;
+      var id = row.getAttribute("data-id");
+      var action = e.target.getAttribute("data-action");
+      if(action === "save"){
+        var name = row.querySelector('[data-field="name"]').value.trim();
+        var itemsText = row.querySelector('[data-field="items"]').value.trim();
+        if(!name) return;
+        updateClothingSet(id, name, itemsText);
+      } else if(action === "del"){
+        if(e.target.classList.contains("confirm")){
+          deleteClothingSet(id);
+        } else {
+          e.target.classList.add("confirm");
+          e.target.textContent = "本当に削除？";
+          setTimeout(function(){
+            e.target.classList.remove("confirm");
+            e.target.textContent = "削除";
+          }, 3000);
+        }
+      }
     });
 
     document.getElementById("itemList").addEventListener("click", function(e){
@@ -1180,6 +1550,7 @@
         attachDayListener();
         attachMasterListener();
         attachAllDaysListener();
+        attachClothingSetsListener();
       } else {
         showApp(false);
       }
